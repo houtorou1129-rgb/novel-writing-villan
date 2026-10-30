@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>執筆スタジオ</title>
+<style>
+:root {
+  --bg: #f4f1ea;
+  --panel: #faf8f3;
+  --paper: #fffdf8;
+  --line: #e2ddd2;
+  --text: #2b2722;
+  --sub: #8a8174;
+  --accent: #8b5a2b;
+  --accent-text: #fff;
+  --warn: #b5651d;
+  --error: #b3261e;
+  --ok: #4f7a3a;
+  --sel: #efe7da;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1d1b18; --panel: #242220; --paper: #2a2825; --line: #3a3733;
+    --text: #e9e4da; --sub: #a39b8e; --accent: #c08a55; --accent-text: #1d1b18;
+    --warn: #e0a062; --error: #ef7a70; --ok: #9cc483; --sel: #34302b;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1d1b18; --panel: #242220; --paper: #2a2825; --line: #3a3733;
+  --text: #e9e4da; --sub: #a39b8e; --accent: #c08a55; --accent-text: #1d1b18;
+  --warn: #e0a062; --error: #ef7a70; --ok: #9cc483; --sel: #34302b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+  font-size: 14px;
+}
+button, select, input { font: inherit; color: inherit; }
+button {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 12px; cursor: pointer; white-space: nowrap;
+}
+button:hover { border-color: var(--accent); }
+button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+
+#app { display: grid; grid-template-columns: 260px 1fr; height: 100vh; }
+#side { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+#side .tabs { display: flex; gap: 4px; padding: 10px; border-bottom: 1px solid var(--line); }
+#side .tabs button { flex: 1; }
+#side .list { overflow: auto; flex: 1; }
+#side .group { padding: 10px 14px 4px; font-size: 12px; color: var(--sub); }
+.item { padding: 9px 14px; cursor: pointer; border-left: 3px solid transparent; }
+.item:hover { background: var(--sel); }
+.item.active { background: var(--paper); border-left-color: var(--accent); }
+.item .t { line-height: 1.4; }
+.item .m { font-size: 12px; color: var(--sub); margin-top: 2px; }
+#side .foot { padding: 10px; border-top: 1px solid var(--line); display: flex; gap: 6px; flex-wrap: wrap; }
+#side .foot button { flex: 1; }
+
+#main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+#bar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+#bar .grow { flex: 1; }
+#bar .count { color: var(--sub); font-size: 13px; margin-right: 4px; }
+#bar .dirty { color: var(--warn); font-size: 13px; }
+#titleBox { display: flex; align-items: center; gap: 6px; }
+#titleBox input { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; width: 260px; }
+#titleBox select { background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; }
+
+#work { flex: 1; display: grid; grid-template-columns: 1fr 1fr; min-height: 0; }
+#work.read { grid-template-columns: 1fr; }
+#work.read #editPane { display: none; }
+#editPane { border-right: 1px solid var(--line); min-height: 0; display: flex; }
+#editor {
+  flex: 1; border: 0; outline: 0; resize: none; padding: 24px 28px;
+  background: var(--paper); color: var(--text);
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif;
+  font-size: var(--fs, 16px); line-height: 2;
+}
+#previewPane { overflow: auto; background: var(--paper); min-height: 0; }
+#preview { max-width: 42em; margin: 0 auto; padding: 28px 32px 80px; font-size: var(--fs, 16px); line-height: 2; }
+#work.read #preview { padding-top: 40px; }
+
+.novel { font-family: "Hiragino Mincho ProN", "Yu Mincho", "YuMincho", serif; }
+.novel h1 { font-size: 1.5em; margin: 0 0 1.6em; font-weight: 600; letter-spacing: .05em; }
+.novel p { margin: 0; white-space: pre-wrap; }
+.novel p.blank { block-size: 1em; }
+.novel .tcy { text-combine-upright: all; -webkit-text-combine: horizontal; }
+.novel em.dots { font-style: normal; text-emphasis: sesame; -webkit-text-emphasis: sesame; }
+.novel rt { font-size: .5em; }
+#previewPane.vertical { overflow-x: auto; overflow-y: hidden; }
+#previewPane.vertical #preview {
+  writing-mode: vertical-rl; max-width: none; height: 100%; margin: 0;
+  padding: 40px 32px; max-height: 100%;
+}
+#previewPane.vertical .novel h1 { margin: 0 0 0 1.6em; }
+
+.doc { font-size: 15px; line-height: 1.8; }
+.doc h1 { font-size: 1.5em; border-bottom: 1px solid var(--line); padding-bottom: .3em; }
+.doc h2 { font-size: 1.25em; margin-top: 1.6em; border-bottom: 1px solid var(--line); padding-bottom: .2em; }
+.doc h3 { font-size: 1.08em; margin-top: 1.4em; }
+.doc table { border-collapse: collapse; margin: 1em 0; display: block; overflow-x: auto; }
+.doc th, .doc td { border: 1px solid var(--line); padding: 5px 10px; text-align: left; vertical-align: top; }
+.doc th { background: var(--panel); }
+.doc blockquote { margin: 1em 0; padding: .2em 1em; border-left: 3px solid var(--accent); color: var(--sub); }
+.doc code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size: .92em; }
+.doc pre { background: var(--panel); padding: 10px 14px; border-radius: 6px; overflow-x: auto; }
+.doc pre code { background: none; padding: 0; }
+.doc .lbl { display: inline-block; font-size: .85em; padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); }
+.doc .lbl.kakutei { color: var(--ok); border-color: var(--ok); }
+.doc .lbl.kari { color: var(--warn); border-color: var(--warn); }
+.doc .lbl.ai { color: var(--accent); border-color: var(--accent); }
+.doc .lbl.mitei { color: var(--sub); }
+
+#checks { border-top: 1px solid var(--line); background: var(--panel); max-height: 30vh; overflow: auto; display: none; }
+#checks.show { display: block; }
+#checks .head { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; font-weight: 600; position: sticky; top: 0; background: var(--panel); }
+#checks .row { padding: 6px 14px; cursor: pointer; border-top: 1px solid var(--line); display: flex; gap: 10px; }
+#checks .row:hover { background: var(--sel); }
+#checks .ln { color: var(--sub); min-width: 4em; }
+#checks .sev-error { color: var(--error); }
+#checks .sev-warn { color: var(--warn); }
+#checks .none { padding: 10px 14px; color: var(--ok); }
+
+#welcome { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 10; }
+#welcome .card { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 28px; max-width: 520px; line-height: 1.8; }
+#welcome h2 { margin: 0 0 8px; }
+#welcome ol { padding-left: 1.4em; }
+#welcome .btns { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+#welcome .err { color: var(--error); margin-top: 10px; }
+#toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }
+#toast.show { opacity: .92; }
+
+@media (max-width: 800px) {
+  #app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  #side { max-height: 35vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  #work { grid-template-columns: 1fr; }
+  #work:not(.read) #previewPane { display: none; }
+  #titleBox input { width: 160px; }
+}
+</style>
+</head>
+<body>
+<div id="welcome">
+  <div class="card">
+    <h2>執筆スタジオ</h2>
+    <div>小説のフォルダを開いて、話と資料を編集します。保存すると、フォルダの中のファイルがそのまま書き換わります。</div>
+    <ol>
+      <li>「フォルダを開く」を押す</li>
+      <li>小説のフォルダ（<code>AGENTS.md</code> が入っているフォルダ）を選ぶ</li>
+      <li>ブラウザに編集の許可を聞かれたら「許可」を押す</li>
+    </ol>
+    <div class="btns">
+      <button id="openBtn" class="on">フォルダを開く</button>
+      <button id="reopenBtn" style="display:none">前回のフォルダを開く</button>
+    </div>
+    <div id="welcomeErr" class="err"></div>
+  </div>
+</div>
+
+<div id="app">
+  <aside id="side">
+    <div class="tabs">
+      <button id="tabEp" class="on">話</button>
+      <button id="tabDoc">資料</button>
+    </div>
+    <div id="list" class="list"></div>
+    <div class="foot">
+      <button id="newEpBtn">＋ 新しい話</button>
+      <button id="reloadBtn" title="ファイルを読み直す">再読み込み</button>
+    </div>
+  </aside>
+  <main id="main">
+    <div id="bar">
+      <button id="readBtn">読む</button>
+      <button id="editBtn" class="on">編集</button>
+      <button id="vertBtn">縦書き</button>
+      <button id="fsDown" title="文字を小さく">A−</button>
+      <button id="fsUp" title="文字を大きく">A＋</button>
+      <span id="titleBox"></span>
+      <span class="grow"></span>
+      <span id="dirty" class="dirty"></span>
+      <span id="count" class="count"></span>
+      <button id="checkBtn">チェック</button>
+      <button id="saveBtn">保存（Ctrl+S）</button>
+    </div>
+    <div id="work">
+      <div id="editPane"><textarea id="editor" spellcheck="false"></textarea></div>
+      <div id="previewPane"><div id="preview"></div></div>
+    </div>
+    <div id="checks"></div>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+const DOC_DIRS = ['planning', 'setting', 'characters', 'writing'];
+const ROOT_DOCS = ['progress.md', 'AGENTS.md', 'README.md'];
+const STATUS = { draft: '下書き', revised: '手直し済み', published: '公開済み' };
+
+const S = {
+  root: null,
+  tab: 'ep',
+  episodes: [],
+  docs: [],
+  cur: null,          // { kind: 'ep'|'doc', file, ... }
+  original: '',
+  mode: 'edit',
+  vertical: false,
+  fs: 16,
+};
+
+const $ = id => document.getElementById(id);
+const editor = $('editor');
+
+function store(key, val) {
+  try { if (val === undefined) return localStorage.getItem(key); localStorage.setItem(key, val); } catch (e) { return null; }
+}
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+function esc(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ---------- フォルダ ----------
+
+const idb = {
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('novel-studio', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('kv');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  },
+  async get(k) {
+    try {
+      const db = await this.open();
+      return await new Promise(res => {
+        const q = db.transaction('kv').objectStore('kv').get(k);
+        q.onsuccess = () => res(q.result);
+        q.onerror = () => res(null);
+      });
+    } catch (e) { return null; }
+  },
+  async set(k, v) {
+    try {
+      const db = await this.open();
+      db.transaction('kv', 'readwrite').objectStore('kv').put(v, k);
+    } catch (e) { /* 保存できなくても動作は続ける */ }
+  },
+};
+
+async function pickFolder() {
+  $('welcomeErr').textContent = '';
+  if (!window.showDirectoryPicker) {
+    $('welcomeErr').textContent = 'このブラウザはフォルダの編集に対応していません。Chrome か Edge で開いてください。';
+    return;
+  }
+  try {
+    const h = await window.showDirectoryPicker({ mode: 'readwrite' });
+    await openRoot(h);
+  } catch (e) {
+    if (e.name !== 'AbortError') $('welcomeErr').textContent = 'フォルダを開けませんでした：' + e.message;
+  }
+}
+
+async function reopenFolder() {
+  const h = await idb.get('root');
+  if (!h) return;
+  try {
+    if ((await h.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('許可されませんでした');
+    await openRoot(h);
+  } catch (e) {
+    $('welcomeErr').textContent = '前回のフォルダを開けませんでした：' + e.message;
+  }
+}
+
+async function openRoot(h) {
+  try { await h.getFileHandle('AGENTS.md'); }
+  catch (e) {
+    $('welcomeErr').textContent = 'AGENTS.md が見つかりません。小説のフォルダ（リポジトリのいちばん上）を選んでください。';
+    return;
+  }
+  S.root = h;
+  idb.set('root', h);
+  $('welcome').style.display = 'none';
+  await loadAll();
+  const last = store('ns-last');
+  const target = last && [...S.episodes, ...S.docs].find(x => x.path === last);
+  if (target) openItem(target);
+  else if (S.episodes.length) openItem(S.episodes[S.episodes.length - 1]);
+  else if (S.docs.length) { switchTab('doc'); openItem(S.docs[0]); }
+}
+window.__openWithHandle = openRoot; // 動作確認用
+
+async function dirAt(path, create) {
+  let d = S.root;
+  for (const part of path.split('/').filter(Boolean)) d = await d.getDirectoryHandle(part, { create: !!create });
+  return d;
+}
+
+async function readText(fileHandle) {
+  return await (await fileHandle.getFile()).text();
+}
+
+async function writeText(fileHandle, text) {
+  const w = await fileHandle.createWritable();
+  await w.write(text);
+  await w.close();
+}
+
+async function loadAll() {
+  S.episodes = [];
+  try {
+    const d = await dirAt('writing/drafts', true);
+    for await (const [name, h] of d.entries()) {
+      if (h.kind !== 'file' || !/\.md$/.test(name)) continue;
+      const text = await readText(h);
+      const { meta, body } = parseFront(text);
+      const num = Number(meta.episode) || Number((name.match(/\d+/) || [0])[0]);
+      S.episodes.push({ kind: 'ep', path: 'writing/drafts/' + name, name, handle: h, num, meta, body, chars: countChars(body) });
+    }
+  } catch (e) { toast('話の読み込みに失敗：' + e.message); }
+  S.episodes.sort((a, b) => a.num - b.num || a.name.localeCompare(b.name));
+
+  S.docs = [];
+  for (const name of ROOT_DOCS) {
+    try { S.docs.push({ kind: 'doc', group: '全体', path: name, name, handle: await S.root.getFileHandle(name) }); } catch (e) { /* なければ飛ばす */ }
+  }
+  for (const dir of DOC_DIRS) {
+    try {
+      const d = await dirAt(dir);
+      const files = [];
+      for await (const [name, h] of d.entries()) {
+        if (h.kind === 'file' && /\.md$/.test(name)) files.push({ kind: 'doc', group: dir, path: dir + '/' + name, name, handle: h });
+      }
+      files.sort((a, b) => a.name.localeCompare(b.name));
+      S.docs.push(...files);
+    } catch (e) { /* なければ飛ばす */ }
+  }
+  for (const doc of S.docs) {
+    try {
+      const head = (await readText(doc.handle)).match(/^#\s+(.+)$/m);
+      doc.title = head ? head[1].trim() : doc.name;
+    } catch (e) { doc.title = doc.name; }
+  }
+  renderList();
+}
+
+// ---------- frontmatter ----------
+
+function parseFront(text) {
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!m) return { meta: {}, body: text, rawFront: null };
+  const meta = {};
+  for (const line of m[1].split(/\r?\n/)) {
+    const kv = line.match(/^([\w-]+):\s*(.*?)\s*(#.*)?$/);
+    if (kv) meta[kv[1]] = kv[2].replace(/^["']|["']$/g, '');
+  }
+  return { meta, body: text.slice(m[0].length).replace(/^\r?\n/, ''), rawFront: m[1] };
+}
+
+function buildFront(meta) {
+  const keys = ['episode', 'title', 'status', ...Object.keys(meta).filter(k => !['episode', 'title', 'status'].includes(k))];
+  const lines = keys.filter(k => meta[k] !== undefined && meta[k] !== '').map(k => {
+    let v = String(meta[k]);
+    if (k === 'status') v += '   # draft（AIの下書き）／ revised（作者が手直し済み＝決定稿）／ published（公開済み）';
+    return k + ': ' + v;
+  });
+  return '---\n' + lines.join('\n') + '\n---\n\n';
+}
+
+// ---------- 一覧 ----------
+
+function switchTab(tab) {
+  S.tab = tab;
+  $('tabEp').classList.toggle('on', tab === 'ep');
+  $('tabDoc').classList.toggle('on', tab === 'doc');
+  $('newEpBtn').style.display = tab === 'ep' ? '' : 'none';
+  renderList();
+}
+
+function epLabel(ep) {
+  return '第' + ep.num + '話 ' + (ep.meta.title || '（無題）');
+}
+
+function renderList() {
+  const list = $('list');
+  list.innerHTML = '';
+  if (S.tab === 'ep') {
+    const g = document.createElement('div');
+    g.className = 'group';
+    g.textContent = '話の一覧（' + S.episodes.length + '話・合計 ' + S.episodes.reduce((a, e) => a + e.chars, 0).toLocaleString() + '字）';
+    list.appendChild(g);
+    for (const ep of S.episodes) {
+      const el = document.createElement('div');
+      el.className = 'item' + (S.cur && S.cur.path === ep.path ? ' active' : '');
+      el.innerHTML = '<div class="t">' + esc(epLabel(ep)) + '</div><div class="m">' + ep.chars.toLocaleString() + '字・' + esc(STATUS[ep.meta.status] || ep.meta.status || '状態なし') + '</div>';
+      el.onclick = () => openItem(ep);
+      list.appendChild(el);
+    }
+    if (!S.episodes.length) {
+      const e = document.createElement('div');
+      e.className = 'group';
+      e.textContent = 'まだ話がありません。';
+      list.appendChild(e);
+    }
+  } else {
+    let group = null;
+    for (const doc of S.docs) {
+      if (doc.group !== group) {
+        group = doc.group;
+        const g = document.createElement('div');
+        g.className = 'group';
+        g.textContent = group;
+        list.appendChild(g);
+      }
+      const el = document.createElement('div');
+      el.className = 'item' + (S.cur && S.cur.path === doc.path ? ' active' : '');
+      el.innerHTML = '<div class="t">' + esc(doc.title) + '</div><div class="m">' + esc(doc.path) + '</div>';
+      el.onclick = () => openItem(doc);
+      list.appendChild(el);
+    }
+  }
+}
+
+// ---------- 開く・保存 ----------
+
+function isDirty() {
+  return S.cur && editor.value !== S.original;
+}
+
+async function openItem(item) {
+  if (isDirty() && !confirm('保存していない変更があります。破棄して移動しますか？')) return;
+  const text = await readText(item.handle);
+  S.cur = item;
+  if (item.kind === 'ep') {
+    const { meta, body } = parseFront(text);
+    item.meta = meta;
+    item.body = body;
+    editor.value = body;
+  } else {
+    editor.value = text;
+  }
+  S.original = editor.value;
+  store('ns-last', item.path);
+  if (item.kind === 'ep' && S.tab !== 'ep') switchTab('ep');
+  if (item.kind === 'doc' && S.tab !== 'doc') switchTab('doc');
+  renderTitleBox();
+  renderList();
+  update();
+  $('checks').classList.remove('show');
+  editor.scrollTop = 0;
+  $('previewPane').scrollTop = 0;
+  $('vertBtn').disabled = item.kind !== 'ep';
+  $('checkBtn').disabled = item.kind !== 'ep';
+  applyVertical();
+}
+
+function renderTitleBox() {
+  const box = $('titleBox');
+  box.innerHTML = '';
+  if (!S.cur || S.cur.kind !== 'ep') return;
+  const num = document.createElement('span');
+  num.textContent = '第' + S.cur.num + '話';
+  const title = document.createElement('input');
+  title.id = 'titleInput';
+  title.placeholder = 'サブタイトル';
+  title.value = S.cur.meta.title || '';
+  title.oninput = () => update();
+  const st = document.createElement('select');
+  st.id = 'statusSelect';
+  st.title = 'ステータス';
+  const current = S.cur.meta.status || 'draft';
+  const opts = { ...STATUS };
+  if (!opts[current]) opts[current] = current;
+  for (const [k, v] of Object.entries(opts)) {
+    const o = document.createElement('option');
+    o.value = k; o.textContent = v;
+    if (k === current) o.selected = true;
+    st.appendChild(o);
+  }
+  st.onchange = () => update();
+  box.append(num, title, st);
+}
+
+function currentFileText() {
+  if (S.cur.kind !== 'ep') return editor.value;
+  const meta = { ...S.cur.meta, episode: S.cur.num, title: $('titleInput').value.trim(), status: $('statusSelect').value };
+  return buildFront(meta) + editor.value.replace(/\s+$/, '') + '\n';
+}
+
+function metaDirty() {
+  if (!S.cur || S.cur.kind !== 'ep') return false;
+  return ($('titleInput').value.trim() !== (S.cur.meta.title || '')) || ($('statusSelect').value !== (S.cur.meta.status || 'draft'));
+}
+
+async function save() {
+  if (!S.cur) return;
+  try {
+    const text = currentFileText();
+    await writeText(S.cur.handle, text);
+    if (S.cur.kind === 'ep') {
+      const { meta, body } = parseFront(text);
+      S.cur.meta = meta;
+      S.cur.body = body;
+      S.cur.chars = countChars(body);
+      editor.value = body;
+    }
+    S.original = editor.value;
+    update();
+    renderList();
+    toast('保存しました');
+  } catch (e) {
+    toast('保存に失敗しました：' + e.message);
+  }
+}
+
+async function newEpisode() {
+  if (isDirty() && !confirm('保存していない変更があります。破棄して新しい話を作りますか？')) return;
+  const n = (S.episodes.reduce((m, e) => Math.max(m, e.num), 0)) + 1;
+  const name = 'ep' + String(n).padStart(3, '0') + '.md';
+  const d = await dirAt('writing/drafts', true);
+  try { await d.getFileHandle(name); toast(name + ' はすでにあります'); return; } catch (e) { /* ない場合だけ作る */ }
+  const h = await d.getFileHandle(name, { create: true });
+  await writeText(h, buildFront({ episode: n, title: '', status: 'draft' }) + '\n');
+  S.original = editor.value; // 未保存の確認を二重に出さない
+  await loadAll();
+  const ep = S.episodes.find(e => e.name === name);
+  if (ep) openItem(ep);
+  toast('第' + n + '話を作りました');
+}
+
+// ---------- 字数 ----------
+
+function stripRuby(s) {
+  return s
+    .replace(/[|｜]《/g, '《')
+    .replace(/《《(.+?)》》/g, '$1')
+    .replace(/[|｜]([^|｜《\n]+?)《[^》\n]+》/g, '$1')
+    .replace(/([一-鿿々〆ヶ]+)《[^》\n]+》/g, '$1');
+}
+
+function countChars(body) {
+  return stripRuby(body).replace(/\r?\n/g, '').length;
+}
+
+// ---------- プレビュー ----------
+
+function inlineNovel(line) {
+  // 先にエスケープ記法を退避
+  let s = line.replace(/[|｜]《/g, '');
+  s = esc(s);
+  s = s.replace(/《《(.+?)》》/g, '<em class="dots">$1</em>');
+  s = s.replace(/[|｜]([^|｜《]+?)《([^》]+)》/g, '<ruby>$1<rt>$2</rt></ruby>');
+  s = s.replace(/([一-鿿々〆ヶ]+)《([^》]+)》/g, '<ruby>$1<rt>$2</rt></ruby>');
+  return s.replace(//g, '《');
+}
+
+function renderNovel(title, body) {
+  let html = '<div class="novel">';
+  if (title !== null) html += '<h1>' + esc(title).replace(/(^|[^0-9])([0-9]{1,3})(?=[^0-9]|$)/g, '$1<span class="tcy">$2</span>') + '</h1>';
+  for (const line of body.replace(/\s+$/, '').split(/\r?\n/)) {
+    html += line.trim() === '' ? '<p class="blank"></p>' : '<p>' + inlineNovel(line) + '</p>';
+  }
+  return html + '</div>';
+}
+
+function inlineMd(s) {
+  s = esc(s);
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/【(確定[^】]*)】/g, '<span class="lbl kakutei">$1</span>');
+  s = s.replace(/【(仮案[^】]*)】/g, '<span class="lbl kari">$1</span>');
+  s = s.replace(/【(AI[^】]*)】/g, '<span class="lbl ai">$1</span>');
+  s = s.replace(/【(未定[^】]*)】/g, '<span class="lbl mitei">$1</span>');
+  return s;
+}
+
+function renderMd(text) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  let html = '<div class="doc">';
+  let i = 0;
+  const listStack = [];
+  const closeLists = (depth = 0) => { while (listStack.length > depth) html += '</' + listStack.pop().tag + '>'; };
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^```/.test(line)) {
+      closeLists();
+      const buf = [];
+      i++;
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+      i++;
+      html += '<pre><code>' + esc(buf.join('\n')) + '</code></pre>';
+      continue;
+    }
+    if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1])) {
+      closeLists();
+      const cells = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+      html += '<table><thead><tr>' + cells(line).map(c => '<th>' + inlineMd(c) + '</th>').join('') + '</tr></thead><tbody>';
+      i += 2;
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
+        html += '<tr>' + cells(lines[i]).map(c => '<td>' + inlineMd(c) + '</td>').join('') + '</tr>';
+        i++;
+      }
+      html += '</tbody></table>';
+      continue;
+    }
+    let m;
+    if ((m = line.match(/^(#{1,4})\s+(.*)$/))) {
+      closeLists();
+      html += '<h' + m[1].length + '>' + inlineMd(m[2]) + '</h' + m[1].length + '>';
+    } else if ((m = line.match(/^>\s?(.*)$/))) {
+      closeLists();
+      const buf = [m[1]];
+      while (i + 1 < lines.length && (m = lines[i + 1].match(/^>\s?(.*)$/))) { buf.push(m[1]); i++; }
+      html += '<blockquote>' + buf.map(inlineMd).join('<br>') + '</blockquote>';
+    } else if ((m = line.match(/^(\s*)([-*]|\d+\.)\s+(.*)$/))) {
+      const depth = Math.floor(m[1].length / 2) + 1;
+      const tag = /\d/.test(m[2]) ? 'ol' : 'ul';
+      if (listStack.length > depth) closeLists(depth);
+      while (listStack.length < depth) { html += '<' + tag + '>'; listStack.push({ tag }); }
+      html += '<li>' + inlineMd(m[3]) + '</li>';
+    } else if (/^---+\s*$/.test(line)) {
+      closeLists();
+      html += '<hr>';
+    } else if (line.trim() === '') {
+      closeLists();
+    } else {
+      closeLists();
+      const buf = [line];
+      while (i + 1 < lines.length && lines[i + 1].trim() !== '' && !/^(#|>|\s*([-*]|\d+\.)\s|```|\s*\|)/.test(lines[i + 1])) buf.push(lines[++i]);
+      html += '<p>' + buf.map(inlineMd).join('<br>') + '</p>';
+    }
+    i++;
+  }
+  closeLists();
+  return html + '</div>';
+}
+
+function update() {
+  if (!S.cur) return;
+  if (S.cur.kind === 'ep') {
+    const title = '第' + S.cur.num + '話　' + ($('titleInput').value.trim() || '（無題）');
+    $('preview').innerHTML = renderNovel(title, editor.value);
+    $('count').textContent = countChars(editor.value).toLocaleString() + '字';
+  } else {
+    $('preview').innerHTML = renderMd(editor.value);
+    $('count').textContent = editor.value.replace(/\n/g, '').length.toLocaleString() + '字';
+  }
+  $('dirty').textContent = (isDirty() || metaDirty()) ? '● 未保存' : '';
+}
+
+// ---------- チェック ----------
+
+function runChecks(body) {
+  const out = [];
+  const lines = body.split(/\r?\n/);
+  lines.forEach((line, idx) => {
+    const ln = idx + 1;
+    const add = (sev, msg) => out.push({ ln, sev, msg });
+    for (const m of line.matchAll(/…+/g)) if (m[0].length % 2) add('error', '「…」は2個1組にする');
+    for (const m of line.matchAll(/[―—]+/g)) if (m[0].length % 2) add('error', '「―」は2個1組にする');
+    if (/。[」』）)]/.test(line)) add('error', '閉じ括弧の直前に句点を付けない');
+    if (/[!?]/.test(line.replace(/[a-zA-Z0-9]+[!?]/g, ''))) add('error', '半角の！？は全角にする');
+    if (/[！？](?=[^！？」』）)\s　…―])/.test(line)) add('error', '！？の後に文が続くときは全角スペースを空ける');
+    const t = line.trim();
+    if (t && !/^[　「『（(★]/.test(line) && !/^\s*★/.test(line)) add('warn', '段落頭を全角スペースで字下げする');
+    if (/^　[「『]/.test(line)) add('warn', '「」の行頭は字下げしない');
+    for (const sentence of line.split(/[。！？]/)) {
+      const n = (sentence.replace(/「[^」]*」/g, '').match(/、/g) || []).length;
+      if (n >= 3) { add('warn', '読点が多い（一文に' + n + 'つ）。文を切ることを検討'); break; }
+    }
+    if (/のだった。\s*$/.test(line)) add('warn', '「〜のだった」で締めている');
+  });
+  return out;
+}
+
+function showChecks() {
+  if (!S.cur || S.cur.kind !== 'ep') return;
+  const res = runChecks(editor.value);
+  const box = $('checks');
+  box.innerHTML = '<div class="head"><span>チェック結果（' + res.length + '件）</span><button id="closeChecks">閉じる</button></div>';
+  if (!res.length) box.innerHTML += '<div class="none">指摘はありません。</div>';
+  for (const r of res) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = '<span class="ln">' + r.ln + '行目</span><span class="sev-' + r.sev + '">' + (r.sev === 'error' ? '表記' : '文体') + '</span><span>' + esc(r.msg) + '</span>';
+    row.onclick = () => jumpToLine(r.ln);
+    box.appendChild(row);
+  }
+  box.classList.add('show');
+  $('closeChecks').onclick = () => box.classList.remove('show');
+}
+
+function jumpToLine(ln) {
+  if (S.mode === 'read') setMode('edit');
+  const lines = editor.value.split('\n');
+  let pos = 0;
+  for (let i = 0; i < ln - 1; i++) pos += lines[i].length + 1;
+  editor.focus();
+  editor.setSelectionRange(pos, pos + (lines[ln - 1] || '').length);
+  const lh = parseFloat(getComputedStyle(editor).lineHeight) || 32;
+  editor.scrollTop = Math.max(0, (ln - 4) * lh);
+}
+
+// ---------- 表示切り替え ----------
+
+function setMode(mode) {
+  S.mode = mode;
+  $('work').classList.toggle('read', mode === 'read');
+  $('readBtn').classList.toggle('on', mode === 'read');
+  $('editBtn').classList.toggle('on', mode === 'edit');
+  store('ns-mode', mode);
+}
+
+function applyVertical() {
+  const v = S.vertical && S.cur && S.cur.kind === 'ep';
+  $('previewPane').classList.toggle('vertical', v);
+  $('vertBtn').classList.toggle('on', v);
+  if (v) $('previewPane').scrollLeft = $('previewPane').scrollWidth;
+}
+
+function setFs(fs) {
+  S.fs = Math.min(24, Math.max(12, fs));
+  document.documentElement.style.setProperty('--fs', S.fs + 'px');
+  store('ns-fs', String(S.fs));
+}
+
+// プレビューのスクロールを編集側に合わせる
+function syncScroll() {
+  if (S.mode !== 'edit' || S.vertical) return;
+  const max = editor.scrollHeight - editor.clientHeight;
+  const ratio = max > 0 ? editor.scrollTop / max : 0;
+  const pane = $('previewPane');
+  pane.scrollTop = ratio * (pane.scrollHeight - pane.clientHeight);
+}
+
+// ---------- 初期化 ----------
+
+$('openBtn').onclick = pickFolder;
+$('reopenBtn').onclick = reopenFolder;
+$('tabEp').onclick = () => switchTab('ep');
+$('tabDoc').onclick = () => switchTab('doc');
+$('newEpBtn').onclick = newEpisode;
+$('reloadBtn').onclick = async () => {
+  if (isDirty() && !confirm('保存していない変更があります。破棄して読み直しますか？')) return;
+  const path = S.cur && S.cur.path;
+  S.original = editor.value;
+  await loadAll();
+  const item = path && [...S.episodes, ...S.docs].find(x => x.path === path);
+  if (item) openItem(item);
+  toast('読み直しました');
+};
+$('readBtn').onclick = () => setMode('read');
+$('editBtn').onclick = () => setMode('edit');
+$('vertBtn').onclick = () => { S.vertical = !S.vertical; store('ns-vert', S.vertical ? '1' : '0'); applyVertical(); };
+$('fsDown').onclick = () => setFs(S.fs - 1);
+$('fsUp').onclick = () => setFs(S.fs + 1);
+$('checkBtn').onclick = showChecks;
+$('saveBtn').onclick = save;
+editor.addEventListener('input', update);
+editor.addEventListener('scroll', syncScroll);
+editor.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = editor.selectionStart;
+    editor.setRangeText('　', s, editor.selectionEnd, 'end');
+    update();
+  }
+});
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+});
+window.addEventListener('beforeunload', e => {
+  if (isDirty() || metaDirty()) { e.preventDefault(); e.returnValue = ''; }
+});
+
+setFs(Number(store('ns-fs')) || 16);
+setMode(store('ns-mode') === 'read' ? 'read' : 'edit');
+S.vertical = store('ns-vert') === '1';
+idb.get('root').then(h => { if (h) $('reopenBtn').style.display = ''; });
+</script>
+</body>
+</html>
