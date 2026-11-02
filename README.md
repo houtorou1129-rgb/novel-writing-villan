@@ -22,6 +22,7 @@ setting/
 
 characters/
   protagonist.md     主人公
+  supporting-cast.md 脇役
 
 writing/
   style-guide.md     文体と表記のルール（前作から引き継ぎ）
