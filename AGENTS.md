@@ -38,6 +38,7 @@ AIが下書きを書き、作者が手直しします。最初にこのファイ
    - 《障壁》と《結界術》：`setting/barrier-and-kekkai.md`
    - 原作ゲーム：`setting/original-game.md`
    - 人物：`characters/protagonist.md`、`characters/supporting-cast.md`
+   - 構成と構想：`planning/story-outline.md`
 5. 本文を書くときは、必ず `writing/style-guide.md`
 
 企画書の原文は `planning/brief-v0.1.md` にあります。作者の意図に迷ったら、原文に戻ってください。

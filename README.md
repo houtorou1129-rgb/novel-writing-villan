@@ -13,6 +13,7 @@ progress.md          進み具合・次の予定・設定の変更履歴
 planning/
   brief-v0.1.md      作者の企画書（原文）
   concept.md         作品の狙い・守る方針
+  story-outline.md   構成と構想（第一部の山場など）
   open-questions.md  未確定事項と、作者に判断してもらうこと
 
 setting/
